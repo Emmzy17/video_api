@@ -1,3 +1,5 @@
+from email import message
+from inspect import ArgInfo
 from flask import Flask
 from flask_restful import Api, Resource, reqparse,abort,fields, marshal_with
 from flask_sqlalchemy import SQLAlchemy
@@ -15,7 +17,7 @@ class VideoModel(db.Model):
     def __repr__(self):
         return f"name = {name}, views = {views}, likes = {likes}"
 
-db.create_all()
+#db.create_all()
 
 
 
@@ -25,11 +27,16 @@ video_put_args.add_argument("name", type = str, help = "Name of video", required
 video_put_args.add_argument("likes", type = int, help = "Input value for Likes of video", required=True)
 video_put_args.add_argument("views", type = int, help = "Views of video", required = True)
 
+video_update_args = reqparse.RequestParser()
+video_update_args.add_argument("name", type = str, help = "Name of video")
+video_update_args.add_argument("likes", type = int, help = "Input value for Likes of video")
+video_update_args.add_argument("views", type = int, help = "Views of video")
+
 resource_field = {
     'id' : fields.Integer,
     'name' : fields.String,
     'views' : fields.Integer,
-    'like' : fields.Integer
+    'likes' : fields.Integer
 }
 
 
@@ -50,9 +57,28 @@ class video(Resource):
         db.session.add(video)
         db.session.commit()
         return video, 201
+    @marshal_with(resource_field)
+    def patch(self, video_id):
+        args = video_update_args.parse_args()
+        result = VideoModel.query.filter_by(id = video_id)
+        if  not result:
+            abort(404, 'Video doesn\'t exist')
+        if args['name']:
+            result.name = args['name']
+        if args['views']:
+            result.views = args['views']
+        if args['likes']:
+            result.likes = args['likes']
+
+        db.session.commit()
+        return result 
+
+        
     def delete(self, video_id):
-        #abort_if_video_id_doesnt_exist(video_id)
-        #del videos[video_id]
+        result = VideoModel.query.filter_by(id = video_id).first()
+        if not result:
+            abort(404, message= 'Video not found')
+        del result
         return '', 204
 api.add_resource(video, '/video/<int:video_id>')
 
